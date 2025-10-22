@@ -49,6 +49,8 @@
       </div>
 
       <div id="state" class="state"></div>
+
+<div id="api-panel" class="card"><h3>APIs (carga directa)</h3><div class="grid three"><label>Fecha (YYYY-MM-DD): <input id="api-date" type="text" /></label><label>Fuente calendario: <select id="api-cal-src"><option value="nhle">api-web.nhle.com</option><option value="stats">statsapi.web.nhl.com</option></select></label><label>Odds: <select id="api-odds-src"><option value="nhle">NHL partner odds (US)</option><option value="oddsapi">The Odds API (requiere API key)</option><option value="none">Sin odds (50/50)</option></select></label></div><div class="grid two"><label>ODDS_API_KEY (opcional): <input id="odds-api-key" type="password" placeholder="sk_xxx" /></label><label>Región odds (us/us2/uk/eu/au): <input id="odds-region" type="text" value="us" /></label></div><div class="actions"><button id="btn-fetch-apis">Cargar desde APIs</button><button id="btn-build-from-apis">Construir probabilidades + partidos</button></div><div id="api-log" class="state"></div></div>
     </div>
 
     <div class="card">
@@ -145,6 +147,8 @@
 </main>
 
 <footer class="foot">
+  <p><span id="app-version" class="badge">v0.1.0</span></p>
+
   <p>Utah <b>Mammoth</b> incluido oficialmente · © 2025</p>
 </footer>
 

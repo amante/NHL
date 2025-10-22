@@ -521,7 +521,260 @@
   });
 
 
+  // ---- Timezone helper for America/Santiago
+  function todayInSantiago(){
+    try{
+      const tz = "America/Santiago";
+      const dtf = new Intl.DateTimeFormat('en-CA',{timeZone:tz,year:'numeric',month:'2-digit',day:'2-digit'});
+      const [{value:y},{value:m},{value:d}] = dtf.formatToParts(new Date()).filter(x=>x.type!=="literal");
+      return `${y}-${m}-${d}`;
+    }catch(e){
+      const t = new Date(); const y = t.getFullYear(); const m = String(t.getMonth()+1).padStart(2,'0'); const d = String(t.getDate()).padStart(2,'0');
+      return `${y}-${m}-${d}`;
+    }
+  }
+  // Prefill date input on load
+  window.addEventListener("DOMContentLoaded", ()=>{
+    const el = document.getElementById("api-date");
+    if(el && !el.value) el.value = todayInSantiago();
+  });
+
+  // ---- NHL API fetchers
+  async function fetchNhleSchedule(dateStr){
+    const url = `https://api-web.nhle.com/v1/schedule/${dateStr}`; // or /now
+    const r = await fetch(url, {cache:"no-store"});
+    if(!r.ok) throw new Error(`NHL schedule ${r.status}`);
+    return await r.json();
+  }
+  async function fetchStatsapiSchedule(dateStr){
+    const url = `https://statsapi.web.nhl.com/api/v1/schedule?date=${dateStr}`;
+    const r = await fetch(url, {cache:"no-store"});
+    if(!r.ok) throw new Error(`statsapi schedule ${r.status}`);
+    return await r.json();
+  }
+  async function fetchNhleOddsNow(country="US"){
+    const url = `https://api-web.nhle.com/v1/partner-game/${country}/now`;
+    const r = await fetch(url, {cache:"no-store"});
+    if(!r.ok) throw new Error(`NHL odds ${r.status}`);
+    return await r.json();
+  }
+  async function fetchTheOddsApi(region="us", market="h2h", apiKey=""){
+    if(!apiKey) throw new Error("ODDS_API_KEY requerido para The Odds API");
+    const url = `https://api.the-odds-api.com/v4/sports/icehockey_nhl/odds/?regions=${encodeURIComponent(region)}&markets=${encodeURIComponent(market)}&oddsFormat=american&apiKey=${encodeURIComponent(apiKey)}`;
+    const r = await fetch(url, {cache:"no-store"});
+    if(!r.ok) throw new Error(`The Odds API ${r.status}`);
+    return await r.json();
+  }
+
+  // ---- Build schedule rows from API responses
+  function mapScheduleFromNhle(json){
+    const out = [];
+    const games = (json && json.gameWeek) ? json.gameWeek.flatMap(w => w.games||[]) : [];
+    for(const g of games){
+      if(!g.awayTeam || !g.homeTeam) continue;
+      out.push({
+        date: (g.startTimeUTC||"").slice(0,10) || "",
+        team: g.awayTeam?.abbrev || g.awayTeam?.name?.default || "",
+        opponent: g.homeTeam?.abbrev || g.homeTeam?.name?.default || ""
+      });
+      out.push({
+        date: (g.startTimeUTC||"").slice(0,10) || "",
+        team: g.homeTeam?.abbrev || g.homeTeam?.name?.default || "",
+        opponent: g.awayTeam?.abbrev || g.awayTeam?.name?.default || ""
+      });
+    }
+    return out;
+  }
+  function mapScheduleFromStats(json){
+    const out=[];
+    const dates = json?.dates||[];
+    for(const d of dates){
+      for(const g of (d.games||[])){
+        const a = g.teams?.away?.team?.name || g.teams?.away?.team?.abbreviation || "";
+        const h = g.teams?.home?.team?.name || g.teams?.home?.team?.abbreviation || "";
+        out.push({date:d.date, team:a, opponent:h});
+        out.push({date:d.date, team:h, opponent:a});
+      }
+    }
+    return out;
+  }
+
+  // Abbrev/name normalization & Mammoth alias
+  const teamAlias = {
+    "Utah Hockey Club":"Mammoth","Utah":"Mammoth","UTA":"Mammoth","UHC":"Mammoth","Mammoth":"Mammoth"
+  };
+  function normalizeTeamName(s){
+    if(!s) return s;
+    // map common NHL abbrevs to names used in the app pool
+    const map = {
+      "NYI":"Islanders","SJS":"Sharks","SJ":"Sharks","TOR":"Maple Leafs","NJD":"Devils","WSH":"Capitals","SEA":"Kraken","PIT":"Penguins","VAN":"Canucks","OTT":"Senators","EDM":"Oilers","BOS":"Bruins","FLA":"Panthers","STL":"Blues","LAK":"Kings","NSH":"Predators","ANA":"Ducks","DAL":"Stars","CBJ":"Blue Jackets","COL":"Avalanche","ARI":"Mammoth","UTHC":"Mammoth","UTA":"Mammoth","UHC":"Mammoth"
+    };
+    const t = (teamAlias[s] || map[s] || s).strip?.() || (teamAlias[s] || map[s] || s);
+    return t;
+  }
+
+  // ---- Build probabilities from odds data
+  function impliedProbFromAmerican(ml){
+    const n = Number(ml);
+    if(!isFinite(n)) return null;
+    return (n<0) ? (-n)/((-n)+100) : 100/(n+100);
+  }
+  function buildProbsFromNhleOdds(nhleOdds, schedPairs){
+    // nhle partner odds shape may vary; try to map by teamAbbrev or teamName
+    const rows = [];
+    const pairs = uniquePairsFromPairsList(schedPairs);
+    for(const p of pairs){
+      // fallback 50/50
+      let pa = 0.5, ph = 0.5;
+      // Not all partner odds are open — keep placeholder
+      rows.push({date:p.date, away:p.away, home:p.home, p_visitante_%: (pa*100).toFixed(1), p_local_%: (ph*100).toFixed(1)});
+    }
+    return rows;
+  }
+  function buildProbsFromTheOdds(theOdds, schedPairs){
+    // theOdds: list of games with bookmakers/markets[].outcomes[].name & price (american)
+    const pairs = uniquePairsFromPairsList(schedPairs);
+    const out=[];
+    for(const g of pairs){
+      // find a matching event by team names (loose)
+      const evt = (theOdds||[]).find(e => {
+        const a = (e.away_team||"").toLowerCase(), h = (e.home_team||"").toLowerCase();
+        return a.includes(g.away.toLowerCase()) && h.includes(g.home.toLowerCase());
+      });
+      if(!evt){
+        out.push({date:g.date, away:g.away, home:g.home, p_visitante_%:"50.0", p_local_%:"50.0"});
+        continue;
+      }
+      // pick first bookmaker/market h2h
+      const bm = (evt.bookmakers||[])[0];
+      const mk = bm?.markets?.find(m=>m.key==="h2h") || bm?.markets?.[0];
+      const oc = mk?.outcomes||[];
+      let pa=null, ph=null;
+      for(const o of oc){
+        const nm=(o.name||"").toLowerCase();
+        if(nm.includes(evt.away_team.toLowerCase())) pa = impliedProbFromAmerican(o.price);
+        if(nm.includes(evt.home_team.toLowerCase())) ph = impliedProbFromAmerican(o.price);
+      }
+      if(pa==null || ph==null){
+        out.push({date:g.date, away:g.away, home:g.home, p_visitante_%:"50.0", p_local_%:"50.0"});
+      } else {
+        const s = pa+ph; const na = (100*pa/s).toFixed(1); const nh = (100*ph/s).toFixed(1);
+        out.push({date:g.date, away:g.away, home:g.home, p_visitante_%:na, p_local_%:nh});
+      }
+    }
+    return out;
+  }
+
+  function uniquePairsFromPairsList(list){
+    const seen = new Set(), out=[];
+    for(const r of list){
+      const key = [r.team, r.opponent].sort().join("::");
+      if(seen.has(key)) continue;
+      seen.add(key);
+      out.push({date:r.date, away:r.team, home:r.opponent});
+    }
+    return out;
+  }
+
+  // ---- Wire UI buttons
+  $("#btn-fetch-apis").addEventListener("click", async ()=>{
+    const log = [];
+    function say(s){ log.push(s); $("#api-log").textContent = log.join("\n"); }
+    try{
+      const dateStr = $("#api-date").value.trim() || todayInSantiago();
+      const calSrc = $("#api-cal-src").value;
+      const oddsSrc = $("#api-odds-src").value;
+      say(`Fecha: ${dateStr}`);
+
+      // Calendar
+      let schedPairs=[];
+      if(calSrc==="nhle"){
+        say("Cargando calendario: api-web.nhle.com…");
+        const j = await fetchNhleSchedule(dateStr);
+        schedPairs = mapScheduleFromNhle(j).map(r=>({...r, team: normalizeTeamName(r.team), opponent: normalizeTeamName(r.opponent)}));
+        say(`Calendario NHLE ✓ juegos: ${schedPairs.length/2}`);
+      } else {
+        say("Cargando calendario: statsapi.web.nhl.com…");
+        const j = await fetchStatsapiSchedule(dateStr);
+        schedPairs = mapScheduleFromStats(j).map(r=>({...r, team: normalizeTeamName(r.team), opponent: normalizeTeamName(r.opponent)}));
+        say(`Calendario STATS ✓ juegos: ${schedPairs.length/2}`);
+      }
+
+      // Persist a synthetic today_schedule.csv in memory
+      const csvRows = schedPairs.map(r=>({
+        date:r.date, team:r.team, opponent:r.opponent,
+        base_p_team:"", base_p_opp:"",
+        b2b_team_pp:"0", r2r_team_pp:"0", b2b_opp_pp:"0", r2r_opp_pp:"0",
+        l5_adj_team_pp:"0", l5_adj_opp_pp:"0", w7_team_games:"", w7_opp_games:""
+      }));
+      state.csv["today_schedule.csv"] = toCSV(csvRows, Object.keys(csvRows[0]));
+
+      // Odds
+      if(oddsSrc==="nhle"){
+        say("Cargando odds: NHL partner (US)…");
+        const j = await fetchNhleOddsNow("US");
+        state.__nhle_odds = j;
+        say("Odds NHLE ✓ (nota: pueden no alinear por fecha exacta)");
+      } else if(oddsSrc==="oddsapi"){
+        const key = $("#odds-api-key").value.trim();
+        const region = $("#odds-region").value.trim() || "us";
+        say(`Cargando odds: The Odds API (${region})…`);
+        const j = await fetchTheOddsApi(region, "h2h", key);
+        state.__theodds = j;
+        say(`Odds The Odds API ✓ eventos: ${j.length}`);
+      } else {
+        say("Sin odds (50/50).");
+      }
+
+      say("Listo. Ahora pulsa “Construir probabilidades + partidos”. ");
+    }catch(e){
+      $("#api-log").textContent = "ERROR: " + e.message;
+      console.error(e);
+    }
+  });
+
+  $("#btn-build-from-apis").addEventListener("click", async ()=>{
+    const log = []; const say = s=>{ log.push(s); $("#api-log").textContent = log.join("\n"); };
+    try{
+      if(!state.csv["today_schedule.csv"]) throw new Error("Falta calendario; usa 'Cargar desde APIs' primero.");
+      const sched = parseCSV(state.csv["today_schedule.csv"]).data;
+      // Build nhl_final_probs.csv from odds (if any)
+      const pairs = uniquePairsFromPairsList(sched);
+      let rows = [];
+      if(state.__theodds){
+        say("Construyendo probabilidades desde The Odds API…");
+        rows = buildProbsFromTheOdds(state.__theodds, sched);
+      } else if(state.__nhle_odds){
+        say("Construyendo probabilidades desde NHL partner odds…");
+        rows = buildProbsFromNhleOdds(state.__nhle_odds, sched);
+      } else {
+        say("Sin odds — fallback 50/50.");
+        rows = pairs.map(p=>({date:p.date, away:p.away, home:p.home, p_visitante_%:"50.0", p_local_%:"50.0"}));
+      }
+      state.csv["nhl_final_probs.csv"] = toCSV(rows, Object.keys(rows[0]));
+      // Auto-render Partidos
+      buildMatchesView();
+      say("Generado nhl_final_probs.csv y renderizado Partidos ✓");
+    }catch(e){
+      $("#api-log").textContent = "ERROR: " + e.message;
+      console.error(e);
+    }
+  });
+
+
   // Initialize params onchange
   $$("input").forEach(inp => inp.addEventListener("change", readParams));
   readParams();
+  // Fetch and display version
+  (async ()=>{
+    try {
+      const r = await fetch("VERSION", {cache:"no-store"});
+      if (r.ok) {
+        const v = (await r.text()).trim();
+        const el = document.getElementById("app-version");
+        if (el && v) el.textContent = "v" + v;
+      }
+    } catch(e){ /* ignore */ }
+  })();
+
 })();

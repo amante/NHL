@@ -61,3 +61,5 @@ code{background:#0a0f16;padding:2px 4px;border-radius:6px;color:#c9d1d9}
 .center-vs{display:flex;align-items:center;justify-content:center;color:#9fb0c9;font-size:12px}
 .diffbox{display:flex;align-items:center;justify-content:center}
 .diffbadge{display:inline-block;padding:6px 10px;border-radius:10px;background:#182046;color:#cbd5e1;font-size:12px;border:1px solid #273150}
+
+#api-log{white-space:pre-wrap;font-family:ui-monospace,Consolas,monospace}
