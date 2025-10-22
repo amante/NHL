@@ -1,0 +1,139 @@
+<!doctype html>
+<html lang="es">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>NHL — Probabilidades & Cartillas</title>
+  <link rel="stylesheet" href="assets/style.css" />
+  <meta name="description" content="Panel para generar probabilidades sin vig y cartillas 0.5+ puntos para NHL. Incluye ajustes B2B, road→road, racha L5 y PIF (influencia de jugadores).">
+</head>
+<body>
+<header class="topbar">
+  <div class="brand">
+    <div class="logo">🏒</div>
+    <div>
+      <h1>NHL — Probabilidades & Cartillas</h1>
+      <p>Daily toolkit · America/Santiago</p>
+    </div>
+  </div>
+  <nav class="tabs">
+    <button data-tab="datos" class="active">Datos</button>
+    <button data-tab="prob">Probabilidades</button>
+    <button data-tab="cartillas">Cartillas</button>
+    <button data-tab="changelog">Changelog</button>
+  </nav>
+</header>
+
+<main>
+  <!-- DATOS -->
+  <section id="tab-datos" class="tab active">
+    <div class="card">
+      <h2>Entrada de datos</h2>
+      <p>Carga los CSV desde <code>/data</code> del repositorio o súbelos manualmente. Los nombres esperados son:</p>
+      <ul class="grid two">
+        <li><code>games.csv</code> — histórico por equipo/partido</li>
+        <li><code>lineups.csv</code> — disponibilidad histórica</li>
+        <li><code>today_schedule.csv</code> — probabilidades base sin vig + B2B/R2R/L5</li>
+        <li><code>today_lineups.csv</code> — disponibilidad esperada para hoy</li>
+        <li><code>prohibidos.csv</code> — lista de exclusiones</li>
+        <li><code>props_candidates.csv</code> (opcional) — candidatos por equipo</li>
+      </ul>
+
+      <div class="actions">
+        <button id="btn-load-data">Cargar CSVs desde /data</button>
+        <label class="upload">
+          Subir CSVs… <input multiple type="file" id="file-input" accept=".csv" />
+        </label>
+        <button id="btn-show-state">Ver estado</button>
+      </div>
+
+      <div id="state" class="state"></div>
+    </div>
+
+    <div class="card">
+      <h3>Parámetros</h3>
+      <div class="grid three">
+        <label>B2B (pp): <input id="param-b2b" type="number" step="0.1" value="-4.8"/></label>
+        <label>Road→Road (pp): <input id="param-r2r" type="number" step="0.1" value="-1.5"/></label>
+        <label>Cap por lado (pp): <input id="param-cap" type="number" step="0.1" value="8.0"/></label>
+      </div>
+      <details>
+        <summary>Racha últimos 5 (L5)</summary>
+        <div class="grid six">
+          <label>5–0: <input id="l5-5-0" type="number" step="0.1" value="4.0"/></label>
+          <label>4–1: <input id="l5-4-1" type="number" step="0.1" value="2.5"/></label>
+          <label>3–2: <input id="l5-3-2" type="number" step="0.1" value="1.0"/></label>
+          <label>2–3: <input id="l5-2-3" type="number" step="0.1" value="-1.0"/></label>
+          <label>1–4: <input id="l5-1-4" type="number" step="0.1" value="-2.5"/></label>
+          <label>0–5: <input id="l5-0-5" type="number" step="0.1" value="-4.0"/></label>
+        </div>
+      </details>
+      <details>
+        <summary>Carga 7 días (opcional)</summary>
+        <div class="grid four">
+          <label>4 juegos: <input id="w7-4" type="number" step="0.1" value="-0.8"/></label>
+          <label>5 juegos: <input id="w7-5" type="number" step="0.1" value="-1.8"/></label>
+          <label>6 juegos: <input id="w7-6" type="number" step="0.1" value="-3.0"/></label>
+          <label>7 juegos: <input id="w7-7" type="number" step="0.1" value="-4.0"/></label>
+        </div>
+      </details>
+    </div>
+  </section>
+
+  <!-- PROBABILIDADES -->
+  <section id="tab-prob" class="tab">
+    <div class="card">
+      <h2>Probabilidades (sin vig) + Ajustes</h2>
+      <p>Calcula la probabilidad final por partido aplicando B2B, road→road, racha L5 y PIF (si hay datos).</p>
+      <div class="actions">
+        <button id="btn-calc-prob">Calcular probabilidades</button>
+        <button id="btn-export-prob">Exportar CSV</button>
+      </div>
+      <div id="prob-table"></div>
+    </div>
+  </section>
+
+  <!-- CARTILLAS -->
+  <section id="tab-cartillas" class="tab">
+    <div class="card">
+      <h2>Cartillas (1 leg por partido · 0.5+ puntos)</h2>
+      <p>Genera cartillas separadas por <b>locales</b> y <b>visitas</b>, evitando duplicados y respetando <code>prohibidos.csv</code>.</p>
+      <div class="actions">
+        <button id="btn-build-cards">Generar cartillas</button>
+        <button id="btn-export-cards">Exportar CSVs</button>
+      </div>
+      <div class="grid two">
+        <div>
+          <h3>Locales</h3>
+          <div id="cards-local"></div>
+        </div>
+        <div>
+          <h3>Visitas</h3>
+          <div id="cards-visit"></div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- CHANGELOG -->
+  <section id="tab-changelog" class="tab">
+    <div class="card">
+      <h2>Changelog</h2>
+      <p>Se puede cargar desde <code>/data/nhl_changelog.csv</code> o generarlo desde aquí al exportar.</p>
+      <div class="actions">
+        <button id="btn-load-changelog">Cargar changelog</button>
+        <button id="btn-clear-changelog">Vaciar changelog (local)</button>
+        <button id="btn-export-changelog">Exportar changelog</button>
+      </div>
+      <div id="changelog-table"></div>
+    </div>
+  </section>
+</main>
+
+<footer class="foot">
+  <p>Utah <b>Mammoth</b> incluido oficialmente · © 2025</p>
+</footer>
+
+<script src="assets/app.js"></script>
+</body>
+</html>

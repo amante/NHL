@@ -1,0 +1,3 @@
+date,team,opponent,base_p_team,base_p_opp,b2b_team_pp,r2r_team_pp,b2b_opp_pp,r2r_opp_pp,l5_adj_team_pp,l5_adj_opp_pp,w7_team_games,w7_opp_games
+2025-10-21,Kraken,Capitals,0.3,0.7,-4.8,-1.5,0.0,0.0,0.0,1.0,4,3
+2025-10-21,Capitals,Kraken,0.7,0.3,0.0,0.0,-4.8,-1.5,1.0,0.0,3,4
