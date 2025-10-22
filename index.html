@@ -19,6 +19,7 @@
   <nav class="tabs">
     <button data-tab="datos" class="active">Datos</button>
     <button data-tab="prob">Probabilidades</button>
+    <button data-tab="partidos">Partidos</button>
     <button data-tab="cartillas">Cartillas</button>
     <button data-tab="changelog">Changelog</button>
   </nav>
@@ -92,6 +93,19 @@
       <div id="prob-table"></div>
     </div>
   </section>
+
+
+  <!-- PARTIDOS -->
+  <section id="tab-partidos" class="tab">
+    <div class="card">
+      <h2>Partidos del día — favorito (borde <span class="badge" style="background:#19321a;color:#8ef0ae">verde</span>), duelo parejo &lt; 10 pp (borde <span class="badge" style="background:#3a2f0a;color:#fbcf67">amarillo</span>)</h2>
+      <div class="actions">
+        <button id="btn-render-matches">Renderizar partidos</button>
+      </div>
+      <div id="matches-view"></div>
+    </div>
+  </section>
+
 
   <!-- CARTILLAS -->
   <section id="tab-cartillas" class="tab">

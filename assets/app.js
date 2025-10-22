@@ -450,6 +450,77 @@
     URL.revokeObjectURL(a.href);
   }
 
+  // ---- Team monograms
+  const teamMono = (name)=>{
+    const map = {
+      "Islanders":"NYI","Sharks":"SJ","Maple Leafs":"TOR","Devils":"NJD","Capitals":"WSH",
+      "Kraken":"SEA","Penguins":"PIT","Canucks":"VAN","Senators":"OTT","Oilers":"EDM",
+      "Bruins":"BOS","Panthers":"FLA","Blues":"STL","Kings":"LAK","Predators":"NSH",
+      "Ducks":"ANA","Stars":"DAL","Blue Jackets":"CBJ","Avalanche":"COL","Mammoth":"MAM"
+    };
+    return map[name] || (name ? name.slice(0,3).toUpperCase() : "");
+  };
+
+  // ---- Build Matches view
+  function buildMatchesView(){
+    // Prefer nhl_final_probs.csv if present
+    let rows = [];
+    if(state.csv["nhl_final_probs.csv"]){
+      const obj = parseCSV(state.csv["nhl_final_probs.csv"]);
+      rows = obj.data.map(r => ({
+        date: r.date, away: r.away, home: r.home,
+        pv: parseFloat(r.p_visitante_%) || 0,
+        ph: parseFloat(r.p_local_%) || 0
+      }));
+    } else if(state.data && state.data.finalRows){
+      // derive from computed final rows in Probabilidades tab
+      const FR = state.data.finalRows;
+      const seen = new Set();
+      for(const r of FR){
+        const key = [r.team, r.opponent].sort().join("::");
+        if(seen.has(key)) continue;
+        seen.add(key);
+        // assume team listed first is away display-wise
+        const pv = parseFloat(r.final_p_team_%)||0;
+        const ph = parseFloat(r.final_p_opp_%)||0;
+        rows.push({date:r.date, away:r.team, home:r.opponent, pv, ph});
+      }
+    } else {
+      $("#matches-view").innerHTML = "<div class='badge'>Carga primero <code>nhl_final_probs.csv</code> o calcula probabilidades.</div>";
+      return;
+    }
+    // Render
+    let html = "<div class='matches'>";
+    for(const g of rows){
+      const diff = Math.abs(g.ph - g.pv);
+      const favHome = g.ph >= g.pv;
+      const favClass = diff < 10 ? "close" : "fav";
+      const homeCls = favHome ? `teambox2 ${favClass}` : "teambox2";
+      const awayCls = favHome ? "teambox2" : `teambox2 ${favClass}`;
+      const diffTxt = (favHome ? `+${(g.ph - g.pv).toFixed(1)} pp ${g.home}` : `+${(g.pv - g.ph).toFixed(1)} pp ${g.away}`);
+      html += `
+      <div class="match-row">
+        <div class="${awayCls}">
+          <div class="logo2">${teamMono(g.away)}</div>
+          <div class="teammeta"><div class="name">${g.away}</div><div class="sub">${g.pv.toFixed(1)}% de ganar</div></div>
+        </div>
+        <div class="center-vs">vs</div>
+        <div class="${homeCls}">
+          <div class="logo2">${teamMono(g.home)}</div>
+          <div class="teammeta"><div class="name">${g.home}</div><div class="sub">${g.ph.toFixed(1)}% de ganar</div></div>
+        </div>
+        <div class="diffbox"><span class="diffbadge">${diffTxt}</span></div>
+      </div>`;
+    }
+    html += "</div>";
+    $("#matches-view").innerHTML = html;
+  }
+
+  $("#btn-render-matches").addEventListener("click", ()=>{
+    try{ buildMatchesView(); }catch(e){ console.error(e); alert("Error renderizando partidos: "+e.message); }
+  });
+
+
   // Initialize params onchange
   $$("input").forEach(inp => inp.addEventListener("change", readParams));
   readParams();

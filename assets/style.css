@@ -46,3 +46,18 @@ tr td:last-child, tr th:last-child{border-top-right-radius:10px;border-bottom-ri
 button{border-radius:10px;border:1px solid #2a2f3a;background:#121826;color:#fff;padding:8px 12px;cursor:pointer}
 button:hover{filter:brightness(1.2)}
 code{background:#0a0f16;padding:2px 4px;border-radius:6px;color:#c9d1d9}
+
+
+/* --- Partidos (match list) --- */
+.matches{width:100%;border-collapse:separate;border-spacing:0 10px}
+.match-row{background:var(--elev);border:1px solid #222;border-radius:14px;display:grid;grid-template-columns:1fr 60px 1fr 200px;gap:12px;padding:10px}
+@media (max-width:900px){.match-row{grid-template-columns:1fr;gap:8px}}
+.teambox2{display:flex;align-items:center;gap:12px;background:#0f1520;border:2px solid #2a2f3a;border-radius:12px;padding:10px}
+.teambox2.fav{border:3px solid #22c55e}
+.teambox2.close{border:3px solid #fbbf24}
+.logo2{width:36px;height:36px;border-radius:50%;display:grid;place-items:center;background:linear-gradient(145deg,#16204a,#0c112a);border:1px solid #253056;color:#cfe3ff;font-weight:800;font-size:12px}
+.teammeta .name{font-weight:700}
+.teammeta .sub{color:var(--muted);font-size:12px}
+.center-vs{display:flex;align-items:center;justify-content:center;color:#9fb0c9;font-size:12px}
+.diffbox{display:flex;align-items:center;justify-content:center}
+.diffbadge{display:inline-block;padding:6px 10px;border-radius:10px;background:#182046;color:#cbd5e1;font-size:12px;border:1px solid #273150}
