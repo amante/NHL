@@ -35,3 +35,8 @@ NHL/
 - **Utah Mammoth** está soportado como franquicia NHL vigente.
 - El cálculo de **PIF** se hace con tus históricos (si los subes). Si no hay datos, se salta esa capa de ajuste.
 - Todo corre **en el navegador**; no hay backend.
+
+## GitHub Actions (Pages + Validación)
+- El flujo **Deploy NHL site to GitHub Pages** publica automáticamente el sitio cuando haces push a `main`.
+- El flujo **Validate CSVs** verifica los encabezados de los CSVs en `/data` en cada push/PR.
+- En **Settings → Pages**, selecciona **GitHub Actions** como *Build and deployment*.
